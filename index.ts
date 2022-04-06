@@ -3,7 +3,7 @@ dotenv.config({ path: __dirname + '/.env' });
 
 // Dependancies
 import { Server } from 'socket.io';
-import express from 'express';
+import express, { Request } from 'express';
 import * as http from 'http';
 import Redis from 'ioredis';
 import cors from 'cors';
@@ -21,6 +21,8 @@ const logger = new Logger();
 
 // V1
 import DiscordV1 from './routeFunctions/v1/discord';
+import SpotifyV1 from './routeFunctions/v1/spotify';
+
 // Load Servers
 
 const expressServer = express();
@@ -31,15 +33,30 @@ new SocketHandler(io);
 const redis = new Redis(process.env.REDIS || '');
 
 const funcs = new Functions({ redis });
-// Version One
-const discordV1 = new DiscordV1({ funcs });
 
 new DBLoader().loadModels().then((db) => {
+  // Version One
+  const spotifyV1 = new SpotifyV1({ funcs, db });
+  const discordV1 = new DiscordV1({ funcs, spotifyV1 });
+
   logger.ready(`Loaded ${Object.keys(db).length} models`);
   redis.once('connect', async () => {
     logger.ready('Redis Connected');
     await mongoose.connect(process.env.MONGO || '');
     logger.ready(`Connected to MongoDB`);
+
+    // Custom Middleware (Load Request functions)
+    expressServer.use((req: Request, res, next) => {
+      req.funcs = funcs;
+      req.db = db;
+      req.v1 = {
+        discord: discordV1,
+        spotify: spotifyV1
+      };
+      next();
+    });
+
+    // Load folders
     await new Promise((resolve, reject) => {
       klaw(__dirname + '/routes')
         .on('data', async (file) => {
@@ -66,14 +83,6 @@ new DBLoader().loadModels().then((db) => {
     logger.ready('Routes Loaded');
 
     // Load custom request Object
-    expressServer.use((req, res, next) => {
-      req.funcs = funcs;
-      req.v1 = {
-        discord: discordV1
-      };
-      req.query = funcs.parseQuery(req);
-      next();
-    });
 
     // Start Server
     httpServer.listen(process.env.PORT || 3000, () => {

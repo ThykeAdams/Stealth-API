@@ -24,6 +24,9 @@ export default class Functions {
       }
     });
   }
+  async deleteCache(key: string) {
+    return this.redis.del(key);
+  }
   parseQuery(req: Request) {
     return {
       url: `?${Object.keys(req.query)

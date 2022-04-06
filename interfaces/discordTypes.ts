@@ -42,3 +42,5 @@ export interface DiscordSelfbotUser {
     nick: string;
   }>;
 }
+
+export interface DiscordMember {}

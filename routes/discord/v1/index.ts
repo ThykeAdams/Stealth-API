@@ -6,7 +6,12 @@ const router = Router();
 
 router.get('/:id', async (req, res) => {
   const id = req.params.id;
-  let data = await req.v1.discord.getUser(id);
+  let data = await req.funcs.runCache(
+    `STEALTH:REQUESTS:DISCORD:V1:${id}`,
+    async () => {
+      return req.v1.discord.getUser(id);
+    }
+  );
   res.json(data);
 });
 router.get('/:id/avatar', async (req, res) => {
