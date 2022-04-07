@@ -53,6 +53,7 @@ new DBLoader().loadModels().then((db) => {
         discord: discordV1,
         spotify: spotifyV1
       };
+      req.query = funcs.parseQuery(req);
       next();
     });
 
