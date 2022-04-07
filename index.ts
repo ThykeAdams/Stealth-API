@@ -66,7 +66,7 @@ new DBLoader().loadModels().then((db) => {
             .replace(process.cwd(), '')
             .split('\\')
             .join('/')
-            .replace('/routes', '/api');
+            .replace('/routes', '');
           const routedFile = await import(file.path);
           logger.debug(
             `Loading route: ${
