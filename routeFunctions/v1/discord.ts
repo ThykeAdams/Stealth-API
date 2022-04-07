@@ -22,15 +22,18 @@ export default class DiscordV1 {
     this.funcs = funcs;
     this.spotify = spotifyV1;
     this.client = new Client({
-      intents: ['GUILDS', 'GUILD_MEMBERS', 'GUILD_PRESENCES']
+      intents: 131071
     });
 
     this.client.login(process.env.V1_DISCORD_TOKEN);
-    this.client.once('ready', () => console.log('DiscordV1 Ready'));
+    this.client.once('ready', async () => {
+      await this.client.guilds.cache
+        .get(process.env.GUILD_ID || '')
+        ?.members.fetch();
+      console.log('DiscordV1 Ready');
+    });
 
     this.client.on('presenceUpdate', (oldPresence, newPresence) => {
-      console.log('Cheese');
-      console.log(newPresence?.user?.id);
       this.funcs.redis.set(
         `STEALTH:V1:DISCORD:USER:PRESENCEDATA:${newPresence?.user?.id}`,
         ''
@@ -42,7 +45,7 @@ export default class DiscordV1 {
         `STEALTH:REQUESTS:DISCORD:V1:${newPresence?.user?.id}`
       );
     });
-    this.client.on('guildMemberUpdate', (oldMember, newMember) => {
+    this.client.on('memberPresenceUpdate', (oldMember, newMember) => {
       this.funcs.deleteCache(`STEALTH:REQUESTS:DISCORD:V1:${newMember?.id}`);
     });
   }
@@ -56,16 +59,27 @@ export default class DiscordV1 {
     let userPresence: DiscordMember | any = await this.funcs.runCache(
       `STEALTH:V1:DISCORD:USER:PRESENCEDATA:${userId}`,
       async () => {
-        let guildMember = (await (await this.getGuild())?.members.fetch(userId))
-          ?.presence;
-        return guildMember
+        let guild = await this.client.guilds.cache.get(
+          process.env.GUILD_ID || ''
+        );
+        let guildMember = await guild?.members.cache.get(userId);
+        console.log('Member', guildMember);
+        const memberPresence = guildMember?.presence;
+        console.log('Presence', memberPresence);
+        return memberPresence
           ? {
-              status: guildMember?.status || 'offline',
+              status: memberPresence?.status || 'offline',
               clients:
-                Object.keys(guildMember?.clientStatus || {}).map((c) =>
+                Object.keys(memberPresence?.clientStatus || {}).map((c) =>
                   c.toUpperCase()
                 ) || [],
-              activities: guildMember?.activities || []
+              activities: memberPresence?.activities || []
+            }
+          : guildMember
+          ? {
+              status: 'offline',
+              clients: [],
+              activities: []
             }
           : { error: 'User is not in the Stealth server' };
       }
@@ -98,44 +112,46 @@ export default class DiscordV1 {
         format;
     }
 
-    let userSpotifyData = userPresence.activities.find(
+    let userSpotifyData = userPresence?.activities?.find(
       (a: any) => a.name == 'Spotify'
     );
-    const spotify = await this.funcs.runCache(
-      `STEALTH:V1:SPOTIFY:USERAPI:${userSpotifyData.syncId}`,
-      async () => {
-        let songData: any = await this.spotify.getTrack(
-          userSpotifyData?.syncId
-        );
-        let d = userSpotifyData
-          ? {
-              trackId: userSpotifyData.syncId,
-              trackName: songData.name,
-              coverArt: songData.album.images[0].url,
-              explicit: songData.explicit,
-              artists: songData.artists.map((artist: any) => ({
-                name: artist.name,
-                link: artist.external_urls.spotify
-              })),
-              embeddedPreview: songData.preview_url,
-              album: {
-                name: songData.album.name,
-                type: songData.album.album_type,
-                artists: songData.album.artists.map((artist: any) => ({
-                  name: artist.name,
-                  link: artist.external_urls.spotify
-                })),
-                url: songData.album.external_urls.spotify,
-                release: songData.album.release_date,
-                tracks: songData.album.total_tracks
-              }
-            }
-          : userPresence?.error
-          ? { error: userPresence.error }
-          : null;
-        return d;
-      }
-    );
+    const spotify = userSpotifyData
+      ? await this.funcs.runCache(
+          `STEALTH:V1:SPOTIFY:USERAPI:${userSpotifyData?.syncId}`,
+          async () => {
+            let songData: any = await this.spotify.getTrack(
+              userSpotifyData?.syncId
+            );
+            let d = userSpotifyData
+              ? {
+                  trackId: userSpotifyData.syncId,
+                  trackName: songData.name,
+                  coverArt: songData.album.images[0].url,
+                  explicit: songData.explicit,
+                  artists: songData.artists.map((artist: any) => ({
+                    name: artist.name,
+                    link: artist.external_urls.spotify
+                  })),
+                  embeddedPreview: songData.preview_url,
+                  album: {
+                    name: songData.album.name,
+                    type: songData.album.album_type,
+                    artists: songData.album.artists.map((artist: any) => ({
+                      name: artist.name,
+                      link: artist.external_urls.spotify
+                    })),
+                    url: songData.album.external_urls.spotify,
+                    release: songData.album.release_date,
+                    tracks: songData.album.total_tracks
+                  }
+                }
+              : userPresence?.error
+              ? { error: userPresence.error }
+              : null;
+            return d;
+          }
+        )
+      : null;
     return {
       user: {
         id: standardUser.id,
