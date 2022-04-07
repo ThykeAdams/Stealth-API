@@ -53,7 +53,9 @@ export default class DiscordV1 {
     let standardUser: DiscordUser | any = await this.funcs.runCache(
       `STEALTH:V1:DISCORD:USER:USERDATA:${userId}`,
       async () => {
-        const user = await this.client.users.fetch(userId);
+        let user = await this.client.users.fetch(userId);
+        if (!user.banner)
+          user = await this.client.users.fetch(userId, { force: true });
         const jsonUser: any = user.toJSON();
         return {
           ...jsonUser,
