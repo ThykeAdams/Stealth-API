@@ -38,7 +38,7 @@ router.get('/:id/banner', async (req, res) => {
         data = await req.v1.discord.client.users.fetch(req.params.id, {
           force: true
         });
-      return data.bannerURL({ dynamic, format, size });
+      return data.bannerURL({ dynamic, format });
     }
   );
   if (proxy) return request.get(avatar + req.query.url).pipe(res);
