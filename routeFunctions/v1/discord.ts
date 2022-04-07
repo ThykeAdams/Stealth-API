@@ -1,4 +1,4 @@
-import { Client, Presence, UserFlags } from 'discord.js';
+import { Client, Presence, User, UserFlags } from 'discord.js';
 import Functions from '../../util/Funcs';
 import fetch from 'node-fetch';
 import {
@@ -53,7 +53,12 @@ export default class DiscordV1 {
     let standardUser: DiscordUser | any = await this.funcs.runCache(
       `STEALTH:V1:DISCORD:USER:USERDATA:${userId}`,
       async () => {
-        return await (await this.client.users.fetch(userId)).toJSON();
+        const user = await this.client.users.fetch(userId);
+        const jsonUser: any = user.toJSON();
+        return {
+          ...jsonUser,
+          bannerURL: user.bannerURL({ dynamic: true })
+        };
       }
     );
     let userPresence: DiscordMember | any = await this.funcs.runCache(
@@ -63,9 +68,7 @@ export default class DiscordV1 {
           process.env.GUILD_ID || ''
         );
         let guildMember = await guild?.members.cache.get(userId);
-        console.log('Member', guildMember);
         const memberPresence = guildMember?.presence;
-        console.log('Presence', memberPresence);
         return memberPresence
           ? {
               status: memberPresence?.status || 'offline',
