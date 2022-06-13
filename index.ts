@@ -99,3 +99,10 @@ new DBLoader().loadModels().then((db) => {
     });
   });
 });
+
+process.on('uncaughtException', (err: Error) => {
+  logger.error(err?.message);
+});
+process.on('unhandledRejection', (err: Error) => {
+  logger.error(err?.message);
+});
