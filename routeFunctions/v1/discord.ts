@@ -1,11 +1,7 @@
-import { Client, Presence, User, UserFlags } from 'discord.js';
+import { Client, UserFlags } from 'discord.js';
 import Functions from '../../util/Funcs';
 import fetch from 'node-fetch';
-import {
-  DiscordSelfbotUser,
-  DiscordUser,
-  DiscordMember
-} from '../../interfaces/discordTypes';
+import { DiscordSelfbotUser, DiscordUser } from '../../interfaces/discordTypes';
 import { inspect } from 'util';
 import SpotifyV1 from './spotify';
 
@@ -24,7 +20,6 @@ export default class DiscordV1 {
     this.client = new Client({
       intents: 131071
     });
-
     this.client.login(process.env.V1_DISCORD_TOKEN);
     this.client.once('ready', async () => {
       await this.client.guilds.cache
@@ -39,11 +34,14 @@ export default class DiscordV1 {
         ''
       );
       this.funcs.deleteCache(
-        `STEALTH:V1:DISCORD:USER:PRESENCEDATA:${newPresence?.user?.id}`
-      );
-      this.funcs.deleteCache(
         `STEALTH:REQUESTS:DISCORD:V1:${newPresence?.user?.id}`
       );
+      this.getUser(newPresence?.user?.id || '').then(async (user) => {
+        await this.funcs.emitAll(
+          `DISCORD_V1_PRESENCE:${user.user.id}`,
+          user
+        );
+      });
     });
     this.client.on('memberPresenceUpdate', (oldMember, newMember) => {
       this.funcs.deleteCache(`STEALTH:REQUESTS:DISCORD:V1:${newMember?.id}`);
@@ -63,7 +61,7 @@ export default class DiscordV1 {
         };
       }
     );
-    let userPresence: DiscordMember | any = await this.funcs.runCache(
+    let userPresence: any = await this.funcs.runCache(
       `STEALTH:V1:DISCORD:USER:PRESENCEDATA:${userId}`,
       async () => {
         let guild = await this.client.guilds.cache.get(
@@ -130,24 +128,27 @@ export default class DiscordV1 {
             let d = userSpotifyData
               ? {
                   trackId: userSpotifyData.syncId,
-                  trackName: songData.name,
-                  coverArt: songData.album.images[0].url,
-                  explicit: songData.explicit,
-                  artists: songData.artists.map((artist: any) => ({
+                  trackName: songData.data.name,
+                  coverArt: songData.data.album.images[0].url,
+                  explicit: songData.data.explicit,
+                  artists: songData.data.artists.map((artist: any) => ({
                     name: artist.name,
                     link: artist.external_urls.spotify
                   })),
-                  embeddedPreview: songData.preview_url,
+                  embeddedPreview: songData.data.preview_url,
                   album: {
-                    name: songData.album.name,
-                    type: songData.album.album_type,
-                    artists: songData.album.artists.map((artist: any) => ({
+                    name: songData.data.album.name,
+                    type: songData.data.album.album_type,
+                    artists: songData.data.album.artists.map((artist: any) => ({
                       name: artist.name,
                       link: artist.external_urls.spotify
                     })),
-                    url: songData.album.external_urls.spotify,
-                    release: songData.album.release_date,
-                    tracks: songData.album.total_tracks
+                    url: songData.data.album.external_urls.spotify,
+                    release: songData.data.album.release_date,
+                    tracks: songData.data.album.total_tracks,
+                    lyrics: songData.lyrics.lyrics
+                      .map((l: any) => l.words)
+                      .join('\n')
                   }
                 }
               : userPresence?.error
@@ -182,5 +183,41 @@ export default class DiscordV1 {
   }
   async getGuild() {
     return this.client.guilds.cache.get(process.env.GUILD_ID || '');
+  }
+  async getInvite(code: String) {
+    let Data = await this.funcs.runCache(
+      `STEALTH:V1:DISCORD:INVITES:${code}`,
+      async () => {
+        let data = await fetch(
+          `https://canary.discord.com/api/v9/invites/${code}?with_counts=true&with_expiration=true`,
+          {
+            headers: {
+              authorization:
+                'ODk4NTMzMjk3NTQ0NjQyNjMw.YWlmXA.gHuaLHY1d7tOCZhKmvASbOMMx1g'
+            }
+          }
+        ).then((r) => r.json());
+        return {
+          code: data.code,
+          id: data.guild.id,
+          name: data.guild.name,
+          description: data.guild.description,
+          members: data.approximate_member_count,
+          bannerURL: `https://cdn.discordapp.com/banners/${data.guild.id}/${data.guild.banner}.png`,
+          iconURL: `https://cdn.discordapp.com/icons/${data.guild.id}/${data.guild.icon}.png`,
+          splashURL: `https://cdn.discordapp.com/splashes/${data.guild.id}/${data.guild.splash}.png`,
+          boosters: data.guild.premium_subscription_count,
+          features: data.guild.features,
+          vanity: data.guild.vanity_url_code,
+          verification_level: data.guild.verification_level,
+          nsfw: data.guild.nsfw,
+          channel: {
+            id: data.channel.id,
+            name: data.channel.name
+          }
+        };
+      }
+    );
+    return Data;
   }
 }

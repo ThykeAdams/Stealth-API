@@ -27,12 +27,14 @@
     "typescript": "^4.6.3"
   },
   "dependencies": {
+    "booru": "^2.5.6",
     "colorts": "^0.1.63",
     "cors": "^2.8.5",
     "discord.js": "^13.6.0",
     "dotenv": "^16.0.0",
     "express": "^4.17.3",
     "ioredis": "^5.0.3",
+    "kaori": "^2.0.6",
     "klaw": "^4.0.1",
     "moment": "^2.29.2",
     "mongoose": "^6.2.9",

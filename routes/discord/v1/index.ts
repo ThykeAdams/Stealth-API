@@ -21,11 +21,11 @@ router.get('/:id/avatar', async (req, res) => {
     `STEALTH:V1:DISCORD:USER:AVATARS:${format}:${req.params.id}`,
     async () => {
       let data = await req.v1.discord.client.users.fetch(req.params.id);
-      return data.displayAvatarURL({ dynamic, format, size });
+      return data.displayAvatarURL({ dynamic, format, sizee: +size });
     }
   );
   if (proxy) return request.get(avatar + req.query.url).pipe(res);
-  else res.send(avatar);
+  else res.redirect(avatar + req.query.url);
 });
 router.get('/:id/banner', async (req, res) => {
   let { format, size, dynamic = true, proxy }: any = req.query.items;
@@ -38,11 +38,11 @@ router.get('/:id/banner', async (req, res) => {
         data = await req.v1.discord.client.users.fetch(req.params.id, {
           force: true
         });
-      return data.bannerURL({ dynamic, format, size });
+      return data.bannerURL({ dynamic, format, size: +size });
     }
   );
   if (proxy) return request.get(avatar + req.query.url).pipe(res);
-  else res.send(avatar);
+  else res.redirect(avatar + req.query.url);
 });
 
 export default router;

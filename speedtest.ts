@@ -8,7 +8,7 @@ let times: Array<Number> = [];
 async function start() {
   for (var i = 0; i < 100; i++) {
     let before = Date.now();
-    await fetch('http://localhost:3000/api/discord/v1/376901199225552898');
+    await fetch('http://localhost:3029/api/discord/v1/376901199225552898');
     let after = Date.now();
     run++;
     console.log(`[${run}] Fetched API in ${after - before}ms`);

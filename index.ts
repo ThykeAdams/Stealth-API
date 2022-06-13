@@ -32,8 +32,9 @@ new SocketHandler(io);
 
 const redis = new Redis(process.env.REDIS || '');
 
-const funcs = new Functions({ redis });
-
+const funcs = new Functions({ redis, socket: io });
+logger.info('Welcome to STEALTH');
+logger.info('Booting up...\n\n');
 new DBLoader().loadModels().then((db) => {
   // Version One
   const spotifyV1 = new SpotifyV1({ funcs, db });
@@ -44,16 +45,23 @@ new DBLoader().loadModels().then((db) => {
     logger.ready('Redis Connected');
     await mongoose.connect(process.env.MONGO || '');
     logger.ready(`Connected to MongoDB`);
+    expressServer.use((req, resp, next) => {
+      next();
+    }, cors({ maxAge: 84600 }));
 
     // Custom Middleware (Load Request functions)
     expressServer.use((req: Request, res, next) => {
       req.funcs = funcs;
       req.db = db;
+      req.io = io;
       req.v1 = {
         discord: discordV1,
         spotify: spotifyV1
       };
       req.query = funcs.parseQuery(req);
+
+      logger.debug(`${req.method} ${req.url}`);
+      io.sockets.emit('request', 'A request has been made');
       next();
     });
 

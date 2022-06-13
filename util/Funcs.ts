@@ -1,23 +1,34 @@
 import Redis, { RedisOptions } from 'ioredis';
 import { Request } from 'express';
+import { Server, ServerOptions, Socket } from 'socket.io';
 interface Options {
   redis: Redis;
+  socket: Server;
+}
+interface RunCacheOptions {
+  returnSole: boolean;
+  expire: number;
 }
 export default class Functions {
   redis: Redis;
+  socket: Server;
   constructor(options: Options) {
     this.redis = options.redis;
+    this.socket = options.socket;
   }
-  async runCache(key: string, func: Function, returnSole: boolean = true) {
+  async emitAll(key: string, data: any) {
+    return this.socket.emit(key, data);
+  }
+  async runCache(key: string, func: Function, options: RunCacheOptions = {returnSole: false, expire: 3600}) {
     return new Promise(async (resolve, reject) => {
       try {
         let data: any = await this.redis.get(key);
         if (!data) {
           let response = await func();
           data = { data: response, cached: true };
-          this.redis.setex(key, 3600, JSON.stringify(data));
+          this.redis.setex(key, options.expire, JSON.stringify(data));
         } else data = JSON.parse(data);
-        if (returnSole) return resolve(data.data);
+        if (options.returnSole) return resolve(data.data);
         resolve(data);
       } catch (error) {
         reject(error);
